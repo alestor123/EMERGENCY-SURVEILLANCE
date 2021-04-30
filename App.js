@@ -37,3 +37,55 @@ app.use('/signup',express.static(join(__dirname,'serve', 'signup')))
 app.use('/uploads', express.static(join(__dirname, '/uploads')));
 
 // middleware
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cors({origin: '*'}))
+
+// Routes
+
+app.get('/api/:uname/:key', async (req, res) => {  
+if(!((await Model.findOne({key:req.params.uname}))==null)) { 
+if(req.params.key==encryptor.decrypt((await Model.findOne({key:req.params.uname})).value).password) res.json(encryptor.decrypt((await Model.findOne({key:req.params.uname})).value))
+else authErr(res,req,loggerjs)
+}
+else res.status(404).send('404 Not Found')
+})
+
+
+app.post('/api/v1', async (req, res) => {
+var mdl = { ... encryptor.decrypt((await Model.findOne({key:req.body.uname})).value)}
+if(mdl.password==req.body.passwd){
+req.body.data['coordAddress'] = await getAddress(req.body.data.lat,req.body.data.long,process.env.AKEY)
+if(mdl['lasdata']) mdl['lasdata'].push(req.body.data)
+else {
+mdl['lasdata'] = [];
+mdl['lasdata'].push(req.body.data)
+}
+Object.values(mdl.data).splice(4).forEach(num => call(num,mdl.data.name,mdl.lasdata.prior,loggerjs,client))
+Model.findOneAndUpdate({ key:req.body.uname  },{ value:encryptor.encrypt(mdl) }).exec()
+res.send('Yes Go Ahead')
+}
+else authErr(res,req,loggerjs)
+})
+app.post('/sign', async (req, res) => { 
+if(!((await Model.findOne({key:req.body.username}))==null)) res.send('Oops username already exists')
+else {
+Model.findOneAndUpdate({ key:req.body.username  },{ value:encryptor.encrypt(req.body) }, {upsert:true, new: true }).exec()
+res.send('Yup go ahead')
+}})
+
+app.post('/upload/:uname/:key',upload.array('image', 5),async   (req, res) => { 
+if(!((await Model.findOne({key:req.params.uname}))==null)) {
+if(req.params.key==encryptor.decrypt((await Model.findOne({key:req.params.uname})).value).password){
+var mdl = { ... encryptor.decrypt((await Model.findOne({key:req.params.uname})).value)}
+if(!req.files) res.status(400).send(Error('File Not Found'))
+else {
+mdl['images'] = req.files
+Model.findOneAndUpdate({ key:req.params.uname  },{ value:encryptor.encrypt(mdl) }).exec()
+res.send('Sucess')
+}
+}
+}})
+
+
