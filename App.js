@@ -89,3 +89,27 @@ res.send('Sucess')
 }})
 
 
+// Socket io
+
+io.on('connection', socket => {
+socket.username = '';
+socket.channel = '/';
+socket.on('join', ({ username, channel }) => {
+socket.username = username;
+socket.channel = channel;
+socket.join(channel);
+// socket.emit('message', { user: 'Info', msg: 'Welcome to dev talk', channel: socket.channel });
+loggerjs.info( username + 'at '+ channel +' connected');
+// socket.broadcast.to(channel).emit('message', { user: 'Info', msg: `${username} has joined` }); 
+});
+socket.on('radio', blob => {
+socket.broadcast.emit('voice', blob);
+});
+socket.on('message', ({ user, msg }) => socket.to(socket.channel).emit('message', { user: user, msg: msg }));
+socket.on('disconnect', ({ user }) => loggerjs.info(user+' user disconnected'));
+});
+
+
+// HTTP listen
+
+http.listen(port, () => loggerjs(`Server running at ${port}`))
